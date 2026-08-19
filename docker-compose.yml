@@ -1,0 +1,14 @@
+﻿version: "3.8"
+
+services:
+  opschat:
+    build: .
+    container_name: opschat
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped

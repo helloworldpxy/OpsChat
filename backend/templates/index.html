@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpsChat - 智能运维Agent</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=20260819i">
+    <link rel="stylesheet" href="/static/vendor/css/github-dark.min.css">
+    <script src="/static/vendor/js/marked.min.js"></script>
+    <script src="/static/vendor/js/highlight.min.js"></script>
+    <script src="/static/vendor/js/purify.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-mark"></span>
+                    <span>OpsChat</span>
+                </div>
+                <button class="btn-icon sidebar-toggle" id="sidebarToggle" title="收起/展开侧边栏">
+                    <span class="hamburger"><span></span><span></span><span></span></span>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="chat">
+                    <span>对话</span>
+                </a>
+                <a href="#" class="nav-item" data-page="monitor">
+                    <span>监控</span>
+                </a>
+                <a href="#" class="nav-item" data-page="audit">
+                    <span>审计日志</span>
+                </a>
+                <a href="#" class="nav-item" data-page="tools">
+                    <span>工具管理</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <span>设置</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="version-info">
+                    <span>v1.2.0</span>
+                    <span class="status-dot online"></span>
+                </div>
+                <button class="theme-toggle" id="themeToggle" title="切换主题">
+                    <span id="themeToggleLabel">主题</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 对话页面 -->
+            <div class="page active" id="page-chat">
+                <div class="chat-container">
+                    <!-- 会话列表侧边栏 -->
+                    <div class="conversation-sidebar" id="conversationSidebar">
+                        <div class="conversation-sidebar-header">
+                            <button class="btn btn-primary btn-block" id="newChatBtn">
+                                <span>新建对话</span>
+                            </button>
+                        </div>
+                        <div class="conversation-search-wrap">
+                            <input type="text" id="conversationSearch" placeholder="搜索历史消息..." autocomplete="off">
+                        </div>
+                        <div class="conversation-list" id="conversationList"></div>
+                        <div class="conversation-search-results" id="conversationSearchResults" style="display:none"></div>
+                    </div>
+
+                    <!-- 主对话区域 -->
+                    <div class="chat-main">
+                        <div class="chat-header">
+                            <div class="chat-title">
+                                <button class="btn-icon sidebar-toggle-btn" id="convSidebarToggle" title="收起/展开会话列表">
+                                    <span class="hamburger"><span></span><span></span><span></span></span>
+                                </button>
+                                <div>
+                                    <h2 id="currentChatTitle">智能运维对话</h2>
+                                    <span class="chat-subtitle">基于大模型的智能运维助手</span>
+                                </div>
+                            </div>
+                            <div class="chat-actions">
+                                <button class="btn btn-secondary" id="detailPanelToggle" title="工具详情面板">
+                                    <span>详情</span>
+                                </button>
+                                <button class="btn btn-secondary" id="clearChatBtn" title="清空当前对话">
+                                    <span>清空</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="welcome-message">
+                                <div class="welcome-icon">AI</div>
+                                <h3>欢迎使用 OpsChat</h3>
+                                <p>我可以帮助您监控和管理操作系统，包括系统资源监控、进程管理与日志分析。</p>
+                                <ul>
+                                    <li>查看系统状态（CPU / 内存 / 磁盘）</li>
+                                    <li>网络诊断与连接检查</li>
+                                    <li>进程和服务管理</li>
+                                    <li>系统日志分析</li>
+                                </ul>
+                                <div class="example-queries">
+                                    <button class="example-btn" data-query="帮我查看一下当前系统的CPU和内存使用情况">查看系统状态</button>
+                                    <button class="example-btn" data-query="检查一下磁盘空间使用情况">检查磁盘空间</button>
+                                    <button class="example-btn" data-query="列出当前运行的进程，按CPU使用率排序">查看进程列表</button>
+                                    <button class="example-btn" data-query="查看系统最近的错误日志">查看错误日志</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chat-input-container">
+                            <div class="chat-input-wrapper">
+                                <textarea
+                                    id="chatInput"
+                                    placeholder="输入您的问题，例如：帮我查看磁盘使用情况..."
+                                    rows="1"
+                                ></textarea>
+                                <div class="input-actions">
+                                    <div class="context-meter" id="contextMeter" title="上下文占用">
+                                        <svg viewBox="0 0 36 36">
+                                            <circle class="meter-bg" cx="18" cy="18" r="15.9155" fill="none"/>
+                                            <circle class="meter-seg meter-system" cx="18" cy="18" r="15.9155" fill="none"/>
+                                            <circle class="meter-seg meter-tools" cx="18" cy="18" r="15.9155" fill="none"/>
+                                            <circle class="meter-seg meter-messages" cx="18" cy="18" r="15.9155" fill="none"/>
+                                        </svg>
+                                        <span class="meter-label" id="meterLabel">0%</span>
+                                    </div>
+                                    <button class="btn btn-primary" id="sendBtn" title="发送">
+                                        <span>发送</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="input-hint">
+                                <span>按 Enter 发送，Shift + Enter 换行</span>
+                            </div>
+                        </div>
+
+                        <div class="chat-footer-metrics" id="chatFooterMetrics">
+                            <span class="footer-metric" title="首 token 延迟（Time To First Token）">
+                                <span class="fm-label">TTFT</span>
+                                <span class="fm-value" id="fmTtft">—</span>
+                            </span>
+                            <span class="footer-metric" title="生成速率（tokens/秒）">
+                                <span class="fm-label">速率</span>
+                                <span class="fm-value" id="fmSpeed">—</span>
+                            </span>
+                            <span class="footer-metric" title="整轮耗时（含工具执行）">
+                                <span class="fm-label">耗时</span>
+                                <span class="fm-value" id="fmElapsed">—</span>
+                            </span>
+                            <span class="footer-metric" title="上下文用量估算">
+                                <span class="fm-label">tokens</span>
+                                <span class="fm-value" id="fmTokens">—</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 详情列：点击工具卡片 → 全高 IN/OUT 审视 -->
+                    <aside class="detail-panel collapsed" id="detailPanel">
+                        <div class="detail-panel-header">
+                            <span class="detail-panel-title" id="detailPanelTitle">工具详情</span>
+                            <button class="btn-icon detail-panel-close" id="detailPanelClose" title="关闭详情">
+                                <span>×</span>
+                            </button>
+                        </div>
+                        <div class="detail-panel-body" id="detailPanelBody">
+                            <div class="detail-empty">
+                                <p>点击消息区中的工具卡片<br>在此全高查看 IN / OUT 详情</p>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- 监控页面 -->
+            <div class="page" id="page-monitor">
+                <div class="page-header">
+                    <h2>系统监控</h2>
+                    <button class="btn btn-secondary" id="refreshMonitorBtn">
+                        <span>刷新</span>
+                    </button>
+                </div>
+                <div class="monitor-page-body">
+                    <div class="monitor-grid">
+                        <div class="monitor-card">
+                            <div class="monitor-card-header">
+                                <span>CPU使用率</span>
+                            </div>
+                            <div class="monitor-card-body">
+                                <div class="gauge" id="cpuGauge">
+                                    <div class="gauge-value">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="monitor-card">
+                            <div class="monitor-card-header">
+                                <span>内存使用率</span>
+                            </div>
+                            <div class="monitor-card-body">
+                                <div class="gauge" id="memoryGauge">
+                                    <div class="gauge-value">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="monitor-card">
+                            <div class="monitor-card-header">
+                                <span>磁盘使用率</span>
+                            </div>
+                            <div class="monitor-card-body">
+                                <div class="gauge" id="diskGauge">
+                                    <div class="gauge-value">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="monitor-card">
+                            <div class="monitor-card-header">
+                                <span>MCP工具状态</span>
+                            </div>
+                            <div class="monitor-card-body">
+                                <div class="tool-status" id="toolStatus">
+                                    <span class="status-text">加载中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 审计日志页面 -->
+            <div class="page" id="page-audit">
+                <div class="page-header">
+                    <h2>审计日志</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="exportAuditCsvBtn" title="导出 CSV">
+                            <span>导出 CSV</span>
+                        </button>
+                        <button class="btn btn-secondary" id="exportAuditJsonBtn" title="导出 JSON">
+                            <span>导出 JSON</span>
+                        </button>
+                        <button class="btn btn-secondary" id="refreshAuditBtn">
+                            <span>刷新</span>
+                        </button>
+                        <button class="btn btn-danger" id="clearAuditBtn">
+                            <span>清除日志</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="audit-container">
+                    <div class="audit-filters">
+                        <div class="audit-search-wrap">
+                            <input type="text" id="auditSearch" placeholder="搜索审计内容..." autocomplete="off">
+                        </div>
+                        <select id="auditStageFilter">
+                            <option value="">所有阶段</option>
+                            <option value="user_input">用户输入</option>
+                            <option value="environment_perception">环境感知</option>
+                            <option value="llm_reasoning">LLM推理</option>
+                            <option value="safety_check">安全检查</option>
+                            <option value="execution">执行</option>
+                            <option value="response">响应</option>
+                        </select>
+                    </div>
+                    <div class="audit-timeline" id="auditTimeline">
+                        <div class="audit-empty">
+                            <p>暂无审计日志</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 工具管理页面 -->
+            <div class="page" id="page-tools">
+                <div class="page-header">
+                    <h2>工具管理</h2>
+                    <div class="header-actions">
+                        <select class="tools-sort-select" id="toolsSort" title="排序方式">
+                            <option value="default">默认顺序</option>
+                            <option value="name-asc">名称（A → Z）</option>
+                            <option value="name-desc">名称（Z → A）</option>
+                            <option value="date-desc">创建时间（新 → 旧）</option>
+                            <option value="date-asc">创建时间（旧 → 新）</option>
+                        </select>
+                        <button class="btn btn-primary" id="createToolBtn">
+                            <span>创建工具</span>
+                        </button>
+                        <button class="btn btn-secondary" id="refreshToolsBtn">
+                            <span>刷新</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tools-page-body">
+                    <!-- 创建工具表单（默认隐藏） -->
+                    <div class="create-tool-form" id="createToolForm" style="display:none">
+                        <h3>创建自定义工具</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>工具名称 *</label>
+                                <input type="text" id="toolName" placeholder="英文，如 check_port">
+                            </div>
+                            <div class="form-group">
+                                <label>风险等级</label>
+                                <select id="toolRiskLevel">
+                                    <option value="low">低风险</option>
+                                    <option value="medium">中风险</option>
+                                    <option value="high">高风险（需用户确认）</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>工具描述 *</label>
+                            <input type="text" id="toolDescription" placeholder="描述这个工具的功能">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>命令类型</label>
+                                <select id="toolCommandType">
+                                    <option value="shell">Shell命令</option>
+                                    <option value="python">Python代码</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>参数定义 (JSON Schema)</label>
+                                <textarea id="toolParameters" rows="3" placeholder='{"type":"object","properties":{"host":{"type":"string","description":"主机地址"}},"required":["host"]}'></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>命令模板 *</label>
+                            <textarea id="toolCommandTemplate" rows="3" placeholder="ping -c {count} {host}   (其中 {参数名} 作为占位符)"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" id="saveToolBtn">
+                                <span>保存工具</span>
+                            </button>
+                            <button class="btn btn-secondary" id="cancelToolBtn">取消</button>
+                        </div>
+                    </div>
+
+                    <div class="tools-container" id="toolsContainer">
+                        <div class="tools-loading">
+                            <span>加载中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置页面（dsh 风格：导航栏 + 分区，模型列表：provider 卡片） -->
+            <div class="page" id="page-settings">
+                <div class="page-header">
+                    <h2>设置</h2>
+                </div>
+                <div class="settings-page-body">
+                    <nav class="settings-nav">
+                        <button class="settings-nav-item active" data-section="models">
+                            <span>模型</span>
+                        </button>
+                        <button class="settings-nav-item" data-section="security">
+                            <span>安全</span>
+                        </button>
+                        <button class="settings-nav-item" data-section="about">
+                            <span>关于</span>
+                        </button>
+                    </nav>
+
+                    <div class="settings-container">
+                        <!-- 模型（dsh 模型列表：provider 卡片，替换原 provider/model 下拉框） -->
+                        <section class="settings-section" data-pane="models">
+                            <h3>模型</h3>
+                            <p class="settings-desc">
+                                管理可用的模型提供商与 API 密钥，随时切换当前使用模型；
+                                API 密钥只写不读，不会明文回显。
+                            </p>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" id="addModelBtn">
+                                    <span>添加模型</span>
+                                </button>
+                            </div>
+                            <div id="modelProfileList" class="model-profile-list">
+                                <div class="empty-hint" id="modelProfileEmpty">加载中...</div>
+                            </div>
+                        </section>
+
+                        <!-- 安全设置 -->
+                        <section class="settings-section" data-pane="security" style="display:none">
+                            <h3>安全设置</h3>
+                            <div class="settings-form">
+                                <div class="form-group toggle-group">
+                                    <div>
+                                        <div class="tg-label">启用安全护栏</div>
+                                        <div class="tg-desc">输入过滤、工具调用校验与输出校验总开关</div>
+                                    </div>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="enableGuardrail" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-group toggle-group">
+                                    <div>
+                                        <div class="tg-label">启用输入过滤</div>
+                                        <div class="tg-desc">拦截 prompt 注入等危险用户输入</div>
+                                    </div>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="enableInputSanitizer" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-group toggle-group">
+                                    <div>
+                                        <div class="tg-label">启用输出校验</div>
+                                        <div class="tg-desc">拦截 LLM 输出中的高危命令</div>
+                                    </div>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="enableOutputValidator" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-group toggle-group">
+                                    <div>
+                                        <div class="tg-label">启用执行沙箱</div>
+                                        <div class="tg-desc">限制高危路径与权限操作</div>
+                                    </div>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="enableSandbox" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 关于 -->
+                        <section class="settings-section" data-pane="about" style="display:none">
+                            <h3>关于</h3>
+                            <div class="about-info">
+                                <div class="about-item">
+                                    <span>版本</span>
+                                    <span>1.2.0</span>
+                                </div>
+                                <div class="about-item">
+                                    <span>项目</span>
+                                    <span>智能运维Agent（OpsChat）</span>
+                                </div>
+                                <div class="about-item">
+                                    <span>GitHub</span>
+                                    <span><a href="https://github.com/helloworldpxy/OpsChat" target="_blank" rel="noopener noreferrer">github.com/helloworldpxy/OpsChat</a></span>
+                                </div>
+                                <div class="about-item">
+                                    <span>目标平台</span>
+                                    <span>Linux / LoongArch</span>
+                                </div>
+                                <div class="about-item">
+                                    <span>技术栈</span>
+                                    <span>FastAPI + OpenAI API</span>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 确认对话框 -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>操作确认</h3>
+                <button class="modal-close" id="modalClose">
+                    <span>×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-icon warning">!</div>
+                <p id="confirmMessage">确定要执行此操作吗？</p>
+                <div class="modal-details" id="confirmDetails"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="confirmCancel">取消</button>
+                <button class="btn btn-primary" id="confirmOk">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模型档案表单对话框 -->
+    <div class="modal" id="modelFormModal">
+        <div class="modal-overlay" data-close-model></div>
+        <div class="modal-content model-form-modal">
+            <div class="modal-header">
+                <h3 id="modelFormTitle">添加模型</h3>
+                <button class="modal-close" id="modelFormClose">
+                    <span>×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="mpEditId">
+                <div class="form-group">
+                    <label>提供商模板（可选）</label>
+                    <select id="mpCatalog">
+                        <option value="__none__">-- 手动填写 --</option>
+                        <option value="__custom__">自定义提供商</option>
+                    </select>
+                    <div class="provider-hint" id="mpCatalogHint"></div>
+                </div>
+                <div class="form-group">
+                    <label>显示名称</label>
+                    <input type="text" id="mpName" placeholder="如：我的 DeepSeek 网关">
+                </div>
+                <div class="form-group" id="mpIdGroup">
+                    <label>档案 ID（唯一）</label>
+                    <input type="text" id="mpId" placeholder="仅字母、数字/_/-，如 my-gateway">
+                </div>
+                <div class="form-group">
+                    <label>API Base URL</label>
+                    <input type="text" id="mpBaseUrl" placeholder="https://api.deepseek.com">
+                </div>
+                <div class="form-group">
+                    <label>API Key <span class="form-hint">（编辑时留空 = 保持原密钥）</span></label>
+                    <div class="input-with-toggle">
+                        <input type="password" id="mpApiKey" placeholder="输入API Key">
+                        <button class="toggle-password" id="mpToggleKey" title="显示/隐藏">
+                            <span>显示</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>模型列表</label>
+                    <div id="mpModelList"></div>
+                    <button class="btn btn-secondary btn-sm" id="mpAddModelBtn">
+                        <span>添加模型</span>
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label>当前使用模型</label>
+                    <select id="mpActiveModel">
+                        <option value="">-- 选择 --</option>
+                    </select>
+                </div>
+                <div class="form-group toggle-group">
+                    <div>
+                        <div class="tg-label">保存后立即使用该模型</div>
+                        <div class="tg-desc">激活后立即切换当前对话使用</div>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="mpIsActive">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="mpCancel">取消</button>
+                <button class="btn btn-primary" id="mpSave">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知 -->
+    <div class="notification-container" id="notificationContainer"></div>
+
+    <script src="/static/js/api.js?v=20260819i"></script>
+    <script src="/static/js/toolcards.js?v=20260819i"></script>
+    <script src="/static/js/chat.js?v=20260819i"></script>
+    <script src="/static/js/settings.js?v=20260819i"></script>
+    <script src="/static/js/app.js?v=20260819i"></script>
+</body>
+</html>
